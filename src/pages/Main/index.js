@@ -13,12 +13,12 @@ export default class Main extends Component {
     newRepo: '',
     repositories: [],
     loading: false,
+    repositoryNotFound: false,
   };
 
   // Carregar os dados do localStorage
   componentDidMount() {
     const repositories = localStorage.getItem('repositories');
-
     if (repositories) {
       this.setState({ repositories: JSON.parse(repositories) });
     }
@@ -38,27 +38,38 @@ export default class Main extends Component {
   };
 
   handleSubmit = async e => {
-    e.preventDefault();
+    try {
+      e.preventDefault();
 
-    this.setState({ loading: true });
+      this.setState({ loading: true, repositoryNotFound: false });
 
-    const { newRepo, repositories } = this.state;
+      const { newRepo, repositories } = this.state;
 
-    const response = await api.get(`/repos/${newRepo}`);
+      const response = await api.get(`/repos/${newRepo}`);
 
-    const data = {
-      name: response.data.full_name,
-    };
+      const data = {
+        name: response.data.full_name,
+      };
 
-    this.setState({
-      repositories: [...repositories, data],
-      newRepo: '',
-      loading: false,
-    });
+      if (repositories.some(x => x.name === newRepo)) {
+        throw new Error('Repositório duplicado');
+      }
+
+      this.setState({
+        repositories: [...repositories, data],
+        newRepo: '',
+        loading: false,
+      });
+    } catch (err) {
+      this.setState({
+        repositoryNotFound: true,
+        loading: false,
+      });
+    }
   };
 
   render() {
-    const { newRepo, repositories, loading } = this.state;
+    const { newRepo, repositories, loading, repositoryNotFound } = this.state;
 
     return (
       <Container>
@@ -67,7 +78,10 @@ export default class Main extends Component {
           Repositórios
         </h1>
 
-        <Form onSubmit={this.handleSubmit}>
+        <Form
+          onSubmit={this.handleSubmit}
+          repositoryNotFound={repositoryNotFound}
+        >
           <input
             type="text"
             placeholder="Adicionar repositório"
