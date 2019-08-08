@@ -48,6 +48,27 @@ export const IssueList = styled.ul`
   border-top: 1px solid #eee;
   list-style: none;
 
+  nav {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    div {
+      display: flex;
+      align-items: center;
+      justify-items: center;
+      margin-bottom: 10px;
+      span {
+        background: #999;
+        color: #fff;
+        border-radius: 2px;
+        font-size: 12px;
+        font-weight: 600;
+        height: 20px;
+        padding: 3px 4px;
+        margin-left: 10px;
+      }
+    }
+  }
   li {
     display: flex;
     padding: 15px 10px;
