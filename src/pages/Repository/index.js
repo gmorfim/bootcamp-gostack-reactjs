@@ -2,11 +2,19 @@ import React, { Component } from 'react';
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 
+import { FaArrowRight, FaArrowLeft } from 'react-icons/fa';
 import api from '../../services/api';
 
 import Container from '../../components/Container/index';
 
-import { Loading, Owner, IssueList } from './styles';
+import {
+  Loading,
+  Owner,
+  IssueList,
+  FilterButton,
+  Page,
+  PageButton,
+} from './styles';
 
 export default class Repository extends Component {
   static propTypes = {
@@ -21,13 +29,20 @@ export default class Repository extends Component {
     repository: {},
     issues: [],
     loading: true,
-    filterIssues: 'open',
+    filterIssues: [
+      { state: 'open', active: true, text: 'Abertos' },
+      { state: 'closed', active: false, text: 'Fechados' },
+      { state: 'all', active: false, text: 'Todos' },
+    ],
+    page: 1,
   };
 
   async componentDidMount() {
     const { match } = this.props;
 
-    const { filterIssues } = this.state;
+    const { filterIssues, page } = this.state;
+
+    const getFilterActive = filterIssues.filter(x => x.active === true);
 
     const repoName = decodeURIComponent(match.params.repository);
 
@@ -35,8 +50,9 @@ export default class Repository extends Component {
       api.get(`/repos/${repoName}`),
       api.get(`/repos/${repoName}/issues`, {
         params: {
-          state: filterIssues,
+          state: getFilterActive.state,
           per_page: 5,
+          page,
         },
       }),
     ]);
@@ -48,8 +64,72 @@ export default class Repository extends Component {
     });
   }
 
+  handleFilterChange = async e => {
+    e.preventDefault();
+
+    const { filterIssues, page } = this.state;
+    const { match } = this.props;
+    const verifyFilterSelected = filterIssues.some(
+      x => x.state === e.target.value && x.active
+    );
+
+    if (verifyFilterSelected) return;
+
+    const updateFilter = filterIssues.map(filterIssue => ({
+      ...filterIssue,
+      active: filterIssue.state === e.target.value,
+    }));
+
+    this.setState({ loading: true, filterIssues: updateFilter });
+
+    const repoName = decodeURIComponent(match.params.repository);
+
+    const issues = await api.get(`/repos/${repoName}/issues`, {
+      params: {
+        state: e.target.value,
+        per_page: 5,
+        page,
+      },
+    });
+
+    this.setState({
+      issues: issues.data,
+      loading: false,
+      page: 1,
+    });
+  };
+
+  handleChangePage = async e => {
+    const { match } = this.props;
+    const repoName = decodeURIComponent(match.params.repository);
+
+    const { filterIssues, page } = this.state;
+
+    const newPage = e === 'prev' ? page - 1 : page + 1;
+
+    this.setState({
+      page: newPage,
+      loading: true,
+    });
+
+    const getStateFilter = filterIssues.find(x => x.active);
+
+    const issues = await api.get(`/repos/${repoName}/issues`, {
+      params: {
+        state: getStateFilter.state,
+        per_page: 5,
+        page: newPage,
+      },
+    });
+
+    this.setState({
+      issues: issues.data,
+      loading: false,
+    });
+  };
+
   render() {
-    const { repository, issues, loading } = this.state;
+    const { repository, issues, loading, filterIssues, page } = this.state;
 
     if (loading) {
       return <Loading>Carregando</Loading>;
@@ -66,9 +146,16 @@ export default class Repository extends Component {
           <nav>
             <div>
               <strong>Filtros: </strong>
-              <span onChange={this.handleInputChange}>Abertos</span>
-              <span onChange={this.handleInputChange}>Fechados</span>
-              <span onChange={this.handleInputChange}>Todos</span>
+              {filterIssues.map(filter => (
+                <FilterButton
+                  key={filter.state}
+                  value={filter.state}
+                  active={filter.active}
+                  onClick={this.handleFilterChange}
+                >
+                  {filter.text}
+                </FilterButton>
+              ))}
             </div>
           </nav>
           {issues.map(issue => (
@@ -86,6 +173,15 @@ export default class Repository extends Component {
             </li>
           ))}
         </IssueList>
+        <Page>
+          <PageButton onClick={() => this.handleChangePage('prev')} page={page}>
+            <FaArrowLeft color="#FFF" size={10} />
+          </PageButton>
+
+          <PageButton onClick={() => this.handleChangePage('next')}>
+            <FaArrowRight color="#FFF" size={10} />
+          </PageButton>
+        </Page>
       </Container>
     );
   }
